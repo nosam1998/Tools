@@ -19,5 +19,5 @@ env
 venv
 
 # PROJECT BASED
-downloads/*
+YTDownloader/downloads/*
 *.ignore.*
