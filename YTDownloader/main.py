@@ -13,7 +13,7 @@ class YTDownloader:
 
         self.main()
 
-    def download_from_url(self, url: str) -> bool:
+    def download_from_url(self, url: str) -> None:
         YT = YouTube(url, use_oauth=True, allow_oauth_cache=True)
         YT.streams.filter(progressive=True)
         ys = YT.streams.get_highest_resolution()
