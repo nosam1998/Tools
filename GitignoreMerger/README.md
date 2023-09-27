@@ -5,7 +5,6 @@ Do you have multiple `.gitignore` files that you want to merge? Then this is the
 ## Before you try it
 
 You'll need Python3 installed
-No extra libraries needed!
 
 ## Running the tool
 
