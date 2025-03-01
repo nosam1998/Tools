@@ -2,7 +2,9 @@ import imaplib
 import csv
 import email
 from dataclasses import dataclass
+from dotenv import load_dotenv
 
+load_dotenv()  # take environment variables from .env
 
 
 @dataclass
@@ -215,9 +217,11 @@ class GmailSearcher:
 
 # Example usage:
 if __name__ == '__main__':
+    # You thought the code above was bad? Wait until you see this! Look further down at your own risk! LOL
+    
     # Replace with your actual Gmail credentials
-    username = 'nosam1998@gmail.com'
-    password = 'equhgmpykmxhnykj'  # Use an app-specific password if needed
+    username = os.getenv("username")
+    password = os.getenv("password")  # Use an app-specific password if needed
     loan_funded_subject = "Loan funded = day made. Nice work!"
     load_repaid_subject = "Congratulations -- your SoLo loan has been repaid!"
     searcher = GmailSearcher(username, password)
