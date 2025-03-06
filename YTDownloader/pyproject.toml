@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "ytdownloader"
+version = "0.1.0"
+description = ""
+authors = ["Mason <nosam1998@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pytube = "^15.0.0"
+ffmpeg-python = "^0.2.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
