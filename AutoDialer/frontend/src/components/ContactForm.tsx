@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Axis3DIcon } from "lucide-react";
 
 const ContactForm = () => {
   const { toast } = useToast();
@@ -45,7 +44,7 @@ const ContactForm = () => {
 
     // Form validation successful
     if (!newErrors.url && !newErrors.phone) {
-      const server = "http://localhost:8000";
+      const server = process.env.BACKEND_URL || "http://localhost:8000";
       fetch(`${server}/add_phone_number`, {
         method: "POST",
         body: JSON.stringify({
