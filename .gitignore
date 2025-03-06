@@ -21,3 +21,8 @@ venv
 # PROJECT BASED
 YTDownloader/downloads/*
 *.ignore.*
+
+CryptoTaxes/inputs/*
+
+.examples
+.env
