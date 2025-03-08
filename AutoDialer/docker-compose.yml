@@ -8,14 +8,14 @@ services:
     depends_on:
       - backend
     environment:
-      - BACKEND_URL=http://backend:8000
+      - BACKEND_URL=http://backend:18000
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "18000:18000"
     environment:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
@@ -25,7 +25,7 @@ services:
     image: ngrok/ngrok:latest
     command:
       - "http"
-      - "http://host.docker.internal:8000"
+      - "http://host.docker.internal:18000"
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     ports:
