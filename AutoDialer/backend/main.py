@@ -124,3 +124,16 @@ def add_phone_number(add_phone_number: AddPhoneNumberRequest):
         "message": "Phone number added",
         "phone_number": add_phone_number.phone_number,
     }
+
+@app.get("/all")
+def get_all_rows():
+    db = SessionLocal()
+    try:
+        rows = db.query(Call).all()
+        return rows
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to retrieve call records: {str(e)}"
+        )
+    finally:
+        db.close()
