@@ -1,9 +1,9 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import sessionmaker, declarative_base
 from twilio.rest import Client
-from twilio.twiml.voice_response import Dial, VoiceResponse, Say
+from twilio.twiml.voice_response import VoiceResponse
 import os
 import datetime
 
@@ -63,8 +63,13 @@ def webhook():
         row = db.query(Call).filter(Call.is_called == False).first()
         row.is_called = True
         db.commit()
+        if not row:
+            response.say("No phone number found.")
+            return str(response)
+        response.say("Connecting your call.")
+        print("Trying to call:", row.phone_number)
         response.dial(row.phone_number)
-        return str(response)
+        return Response(content=str(response), media_type="application/xml")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to connect call: {str(e)}")
