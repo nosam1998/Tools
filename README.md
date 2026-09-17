@@ -6,3 +6,8 @@ This public repository doesn't even scratch the surface of Tools I've written fo
 This repository is years in the making. Thanks for checking it out!
 
 **WARNING: Some of these tools are unfinished, and aren't actively maintained. I've recently pushed a few of the tools I wrote years ago, and these likely don't work. I did so for personal documentation reasons.**
+## Pleasantly Busy
+
+[Python soundscape generator](PleasantlyBusy/README.md) with a local listening studio,
+adjustable rhythmic complexity, warm bass, soft percussion, plucked notes, and
+rain texture. Preview mixes in your browser or export reproducible stereo WAV files.

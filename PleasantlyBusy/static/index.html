@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pleasantly Busy — your listening studio</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <span class="eyebrow"><span class="dot"></span> YOUR LOCAL LISTENING STUDIO</span>
+      <h1>Pleasantly<br><em>Busy.</em></h1>
+      <p class="intro">A little more going on. Build a warm, playful groove with just the right amount of detail.</p>
+    </header>
+    <div class="studio">
+      <section class="controls card" aria-labelledby="mix-title">
+        <div class="section-heading"><span class="step">01</span><h2 id="mix-title">Find your mix</h2></div>
+        <div class="presets" aria-label="Complexity presets">
+          <button type="button" class="preset" data-complexity="0.20" aria-pressed="false">Easygoing</button>
+          <button type="button" class="preset" data-complexity="0.55" aria-pressed="true">In the groove</button>
+          <button type="button" class="preset" data-complexity="0.85" aria-pressed="false">Playfully busy</button>
+        </div>
+        <form id="settings">
+          <fieldset id="mix-fields">
+            <legend class="sr-only">Soundscape settings</legend>
+            <div class="control prominent">
+              <label for="complexity">Busyness <output for="complexity" id="complexity-value">55%</output></label>
+              <input type="range" id="complexity" name="complexity" min="0" max="1" step="0.01" value="0.55">
+              <div class="range-caption"><span>Room to breathe</span><span>Little surprises</span></div>
+            </div>
+            <div class="control">
+              <label for="tempo">Tempo <output for="tempo" id="tempo-value">108 BPM</output></label>
+              <input type="range" id="tempo" name="tempo" min="60" max="160" step="1" value="108">
+            </div>
+            <h3>The layers</h3>
+            <div class="layer-grid">
+              <div class="control"><label for="bass">Warm bass <output for="bass" id="bass-value">75%</output></label><input type="range" id="bass" name="bass" min="0" max="1" step="0.05" value="0.75"></div>
+              <div class="control"><label for="percussion">Soft percussion <output for="percussion" id="percussion-value">55%</output></label><input type="range" id="percussion" name="percussion" min="0" max="1" step="0.05" value="0.55"></div>
+              <div class="control"><label for="melody">Plucked notes <output for="melody" id="melody-value">65%</output></label><input type="range" id="melody" name="melody" min="0" max="1" step="0.05" value="0.65"></div>
+              <div class="control"><label for="texture">Rain texture <output for="texture" id="texture-value">30%</output></label><input type="range" id="texture" name="texture" min="0" max="1" step="0.05" value="0.30"></div>
+            </div>
+            <div class="control"><label for="movement">Stereo width <output for="movement" id="movement-value">45%</output></label><input type="range" id="movement" name="movement" min="0" max="1" step="0.05" value="0.45"><small>Bring it to zero for a centered sound.</small></div>
+            <div class="details-grid">
+              <label for="duration">Length<select id="duration" name="duration"><option value="15">15 seconds · quick preview</option><option value="30" selected>30 seconds</option><option value="60">1 minute</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></label>
+              <label for="seed">Pattern seed<div class="seed-row"><input id="seed" name="seed" type="number" min="0" max="4294967295" step="1" value="42" required><button type="button" id="shuffle" title="Choose a new pattern seed" aria-label="Choose a new pattern seed">↻</button></div></label>
+            </div>
+            <button class="generate" type="submit" id="generate">Generate soundscape <span aria-hidden="true">↗</span></button>
+          </fieldset>
+        </form>
+      </section>
+      <section class="listening card" aria-labelledby="listen-title">
+        <div class="section-heading"><span class="step">02</span><h2 id="listen-title">Settle into the sound</h2></div>
+        <div class="art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div><div class="art-center">pb<span>sound, at your pace</span></div></div>
+        <p class="status" id="status" role="status" aria-live="polite">Your groove is waiting. Generate a mix to get started.</p>
+        <audio id="player" controls preload="metadata" aria-label="Soundscape player"></audio>
+        <div class="control listening-volume"><label for="listening-volume">Playback volume <output id="listening-volume-value" for="listening-volume">50%</output></label><input type="range" id="listening-volume" min="0" max="1" step="0.01" value="0.5"><small>Start at a comfortable level on your device.</small></div>
+        <div class="playback-actions"><label class="repeat"><input type="checkbox" id="repeat"> Repeat</label><a id="download" class="download disabled" aria-disabled="true" tabindex="-1">Download WAV <span aria-hidden="true">↓</span></a></div>
+        <div class="note"><strong>Make room for your preferences.</strong><p>Compare a few mixes at a similar volume. Notice both how the sound feels and how easily you stay with what you're doing.</p></div>
+      </section>
+    </div>
+    <footer>Made locally, heard your way. <span>A listening experiment; no clinical benefit is established for this generator.</span></footer>
+  </main>
+</body>
+</html>
