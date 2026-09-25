@@ -2,11 +2,16 @@
 
 **Calm chaos for familiar sound.** Drift is a small listening experiment that applies smooth, randomized EQ changes to music or other audio. The goal is to explore a balance between soothing sound and gentle stimulation.
 
-This is a working browser prototype, not a system-wide audio filter. It processes a local file played inside the page or its built-in demo. It does not change audio from Spotify, YouTube, other apps, or the operating system.
+The project now includes native desktop development previews plus the original browser listening prototype:
+
+- **[Windows and macOS desktop apps](native/README.md):** shared C++ engine, presets, tray/menu-bar controls, and native audio routing. Windows requires a separately installed virtual cable; macOS requires audio-capture permission.
+- **[Browser prototype](index.html):** open a local audio file or play the built-in demo. This page processes only its own audio.
+
+The native adapters require real-device acceptance testing before a consumer release. All-app mobile filtering through ordinary app stores remains outside the implemented scope.
 
 The idea was motivated by an interest in attention and ADHD. Whether this effect improves focus or relaxation is an open question; no therapeutic benefit has been established by this project.
 
-## Quick start
+## Browser quick start
 
 1. Download this folder, or clone the repository.
 2. Open [index.html](index.html) in a current desktop browser. GitHub's file viewer shows source, so open your downloaded copy locally.
@@ -48,7 +53,7 @@ Editing a slider customizes the current motion mode. Presets restore their depth
 
 ## How it works
 
-The entire implementation lives in `index.html`: interface styles, controls, audio graph, motion generation, and curve display. It uses native Web Audio nodes with no external libraries.
+The browser implementation lives in `index.html`: interface styles, controls, audio graph, motion generation, and curve display. It uses native Web Audio nodes with no external libraries.
 
 ```text
 Local file or generated demo
@@ -78,11 +83,11 @@ The demo combines filtered noise and soft musical tones. File mode adds no extra
 
 ## Scope and mobile feasibility
 
-The intended longer-term product is an all-app mobile filter installed through ordinary app stores. This prototype does not implement that goal, and current platform access is a material constraint:
+The intended longer-term product is an all-app mobile filter installed through ordinary app stores. The desktop implementations do not solve that mobile goal, and current platform access is a material constraint:
 
 | Platform | Supported direction | Limitation |
 | --- | --- | --- |
-| Windows / macOS | Native system-audio routing and processing | Requires a separate native implementation and device/app compatibility testing |
+| Windows / macOS | Native adapters are included; see the [desktop guide](native/README.md) | Virtual-cable setup on Windows, capture permission on macOS, and real-device compatibility testing |
 | Android | EQ for compatible audio sessions | Universal all-app coverage cannot be guaranteed; global output-mix EQ through session 0 is deprecated |
 | iPhone / iPad | In-app audio processing or an AUv3 effect in a compatible host | Ordinary apps have no supported universal EQ insertion point for every other app's output |
 

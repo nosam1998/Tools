@@ -14,7 +14,7 @@ rain texture. Preview mixes in your browser or export reproducible stereo WAV fi
 
 ## Drift EQ
 
-[Randomized EQ listening prototype](DriftEQ/README.md) for exploring “calm chaos” in
-familiar audio. Open a local file or play the built-in demo, adjust smooth tonal
-drift or soft pulses, and compare processed/original sound. Runs offline in a
-browser; it processes only audio played inside the prototype.
+[Randomized EQ](DriftEQ/README.md) for exploring “calm chaos” in familiar audio.
+Includes a browser listening prototype and native Windows/macOS development
+previews with a shared C++ audio engine, presets, bypass, and system-audio routing.
+See the [desktop setup guide](DriftEQ/native/README.md) for platform requirements.
