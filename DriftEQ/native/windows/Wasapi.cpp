@@ -3,8 +3,10 @@
 #include <audioclient.h>
 #include <avrt.h>
 #include <cwctype>
-#include <functiondiscoverykeys_devpkey.h>
 #include <mmdeviceapi.h>
+
+// Windows property keys depend on definitions in mmdeviceapi.h.
+#include <functiondiscoverykeys_devpkey.h>
 #include <sstream>
 #include <stdexcept>
 #include <vector>

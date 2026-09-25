@@ -1,0 +1,59 @@
+name: Drift EQ desktop
+on:
+  push:
+    paths: ['DriftEQ/**', '.github/workflows/drift-desktop.yml']
+  pull_request:
+    paths: ['DriftEQ/**', '.github/workflows/drift-desktop.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: drift-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, macos-14]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure Windows
+        if: runner.os == 'Windows'
+        run: cmake -S DriftEQ -B build -A x64
+      - name: Configure macOS (Apple Silicon and Intel)
+        if: runner.os == 'macOS'
+        run: cmake -S DriftEQ -B build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64'
+      - name: Build
+        run: cmake --build build --config Release --parallel 3
+      - name: Native audio tests
+        working-directory: build
+        run: ctest -C Release --output-on-failure
+      - name: Package Windows development build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path package/DriftEQ-Windows -Force
+          Copy-Item build/Release/DriftEQ.exe package/DriftEQ-Windows/
+          Copy-Item DriftEQ/native/README.md package/DriftEQ-Windows/README.md
+          Copy-Item LICENSE package/DriftEQ-Windows/LICENSE
+          Compress-Archive -Path package/DriftEQ-Windows -DestinationPath DriftEQ-Windows-x64.zip
+      - name: Package macOS development build
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p package/DriftEQ-macOS
+          cp -R build/DriftEQ.app package/DriftEQ-macOS/
+          cp DriftEQ/native/README.md package/DriftEQ-macOS/README.md
+          cp LICENSE package/DriftEQ-macOS/LICENSE
+          codesign --force --deep --sign - package/DriftEQ-macOS/DriftEQ.app
+          ditto -c -k --keepParent package/DriftEQ-macOS DriftEQ-macOS-universal.zip
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: DriftEQ-${{ runner.os }}
+          path: DriftEQ-*.zip
+          if-no-files-found: error
+          retention-days: 14
