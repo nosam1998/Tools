@@ -20,6 +20,8 @@ The APO uses Microsoft's dynamic C++ runtime. A machine without the Visual C++ x
 
 ## Signed deployment and removal
 
+For a project without an existing publisher certificate or Hardware Developer account, start with the [release and signing guide](SIGNING.md).
+
 These commands are for a suitably signed build after device compatibility review. They do not make an unsigned preview installable.
 
 1. Run `Setup.ps1 -Mode Inspect | Format-List` and select the full playback endpoint ID for the intended headphones/speakers.
