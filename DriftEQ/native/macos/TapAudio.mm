@@ -1,6 +1,7 @@
 #include "TapAudio.h"
 #include "AudioQueue.h"
 #import <AudioToolbox/AudioToolbox.h>
+#import <CoreAudio/AudioHardwareTapping.h>
 #import <CoreAudio/CATapDescription.h>
 #import <Foundation/Foundation.h>
 #include <array>
@@ -212,7 +213,7 @@ bool TapAudio::start(AudioObjectID output, std::string &error) {
         CATapDescription *description =
             [[CATapDescription alloc] initStereoGlobalTapButExcludeProcesses:@[ @(ownProcess) ]];
         description.name = @"Drift EQ system audio";
-        description.private = YES;
+        [description setPrivate:YES];
         description.muteBehavior = CATapMutedWhenTapped;
         check(AudioHardwareCreateProcessTap(description, &s.tap),
               "Create system audio tap (allow audio capture in System Settings)");

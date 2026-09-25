@@ -57,9 +57,10 @@
         @"pulse" : @NO
     }];
     drift::Parameters p{[prefs floatForKey:@"depth"], [prefs floatForKey:@"seconds"],
-                        [prefs floatForKey:@"volume"], [prefs boolForKey:@"enabled"],
-                        [prefs boolForKey:@"pulse"]};
+                        [prefs floatForKey:@"volume"], bool([prefs boolForKey:@"enabled"]),
+                        bool([prefs boolForKey:@"pulse"])};
     controls.set(p);
+    p = controls.read();
     window =
         [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 600, 600)
                                     styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
