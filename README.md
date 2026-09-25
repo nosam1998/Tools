@@ -17,4 +17,4 @@ rain texture. Preview mixes in your browser or export reproducible stereo WAV fi
 [Randomized EQ](DriftEQ/README.md) for exploring “calm chaos” in familiar audio.
 Includes a browser listening prototype and native Windows/macOS development
 previews with a shared C++ audio engine, presets, bypass, and system-audio routing.
-See the [desktop setup guide](DriftEQ/native/README.md) for platform requirements.
+See the [desktop setup guide](DriftEQ/native/README.md) for platform requirements. A [native Windows APO developer preview](DriftEQ/native/windows/apo/README-APO.md) removes the virtual cable from the processing architecture; signed deployment and hardware validation remain pending.

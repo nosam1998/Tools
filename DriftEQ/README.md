@@ -119,3 +119,7 @@ To contribute, edit `index.html` directly and include the browser/device used to
 ## License
 
 This tool is covered by the repository's [Apache 2.0 license](../LICENSE).
+
+## Native Windows effect without VB-CABLE
+
+The [APO developer preview](native/windows/apo/README-APO.md) includes the native effect DLL, per-device controls, standalone DLL tests, and reversible setup tools. It is unsigned and cannot yet be enabled in the system audio engine; audio-compatible signing and device validation remain required. The [architecture notes](native/windows/apo/ARCHITECTURE.md) explain the integration boundaries.

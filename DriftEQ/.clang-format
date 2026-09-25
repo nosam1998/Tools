@@ -4,3 +4,6 @@ ColumnLimit: 100
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
+
+# Windows SDK headers have prerequisite ordering.
+SortIncludes: Never

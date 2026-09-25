@@ -4,6 +4,10 @@ Drift applies small, smoothly randomized changes to the tone of existing audio. 
 
 This is a development preview. Windows uses a separately installed virtual audio cable. macOS uses the operating system's audio-capture permission. The applications do not record or upload audio, change the system's default output, or start processing automatically at login.
 
+## Native Windows effect without a cable
+
+A separate [APO developer preview](windows/apo/README-APO.md) now builds the EQ directly as a Windows endpoint effect, with its own controller and setup/removal tools. Its unsigned package is for isolated DLL testing; signed system deployment and hardware validation remain pending. The instructions below still describe the existing VB-CABLE app.
+
 ## Windows 11: first run
 
 1. Install [VB-CABLE from VB-Audio](https://vb-audio.com/Cable/) using its instructions. Driver installation requires administrator privileges and may require a restart. VB-CABLE is a separate product and is not bundled here.
@@ -38,7 +42,7 @@ The tap path must be exercised on a real Mac with permission granted. Compilatio
 
 ## Build from source
 
-There are no third-party runtime libraries. The Windows executable uses the static MSVC runtime.
+There are no third-party runtime libraries. The Windows cable executable uses the static MSVC runtime. The separate APO DLL uses the dynamic Microsoft runtime.
 
 ### Windows
 

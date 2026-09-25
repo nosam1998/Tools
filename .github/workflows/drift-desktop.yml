@@ -42,6 +42,11 @@ jobs:
           Copy-Item DriftEQ/native/README.md package/DriftEQ-Windows/README.md
           Copy-Item LICENSE package/DriftEQ-Windows/LICENSE
           Compress-Archive -Path package/DriftEQ-Windows -DestinationPath DriftEQ-Windows-x64.zip
+          New-Item -ItemType Directory -Path package/DriftEQ-Windows-APO -Force
+          Copy-Item build/Release/DriftApo.dll,build/Release/DriftControl.exe,build/Release/drift_apo_tests.exe package/DriftEQ-Windows-APO/
+          Copy-Item DriftEQ/native/windows/apo/README-APO.md,DriftEQ/native/windows/apo/ARCHITECTURE.md,DriftEQ/native/windows/apo/Setup.ps1,DriftEQ/native/windows/apo/Setup.Common.ps1 package/DriftEQ-Windows-APO/
+          Copy-Item LICENSE package/DriftEQ-Windows-APO/LICENSE
+          Compress-Archive -Path package/DriftEQ-Windows-APO -DestinationPath DriftEQ-Windows-APO-x64.zip
       - name: Package macOS development build
         if: runner.os == 'macOS'
         run: |
