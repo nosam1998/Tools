@@ -11,3 +11,10 @@ This repository is years in the making. Thanks for checking it out!
 [Python soundscape generator](PleasantlyBusy/README.md) with a local listening studio,
 adjustable rhythmic complexity, warm bass, soft percussion, plucked notes, and
 rain texture. Preview mixes in your browser or export reproducible stereo WAV files.
+
+## Drift EQ
+
+[Randomized EQ](DriftEQ/README.md) for exploring “calm chaos” in familiar audio.
+Includes a browser listening prototype and native Windows/macOS development
+previews with a shared C++ audio engine, presets, bypass, and system-audio routing.
+See the [desktop setup guide](DriftEQ/native/README.md) for platform requirements. A [native Windows APO developer preview](DriftEQ/native/windows/apo/README-APO.md) removes the virtual cable from the processing architecture; signed deployment and hardware validation remain pending.

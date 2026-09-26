@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drift — randomized EQ listening prototype</title>
+<style>
+:root{color-scheme:dark;--bg:#111714;--panel:#19221d;--text:#edf3ed;--muted:#adbcaf;--line:#344139;--accent:#c8eda9;--ink:#172010}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif}main{max-width:1040px;margin:auto;padding:44px 24px 32px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:40px}.brand{font-size:26px;letter-spacing:-1px;font-weight:600}.tag{color:var(--muted);font-size:13px;letter-spacing:.05em}.eyebrow{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.15em}h1{font-size:clamp(30px,5vw,48px);font-weight:500;letter-spacing:-1.5px;line-height:1.15;margin:10px 0 14px}p{color:var(--muted);margin:8px 0 20px;max-width:720px}.layout{display:grid;grid-template-columns:1.1fr 1fr;gap:22px;margin-top:28px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:24px}h2{font-size:17px;font-weight:500;margin:0 0 20px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spread{justify-content:space-between}button,select,input{font:inherit}button,select{border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:9px;padding:10px 14px}button{cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.45;cursor:default}button.primary,button[aria-pressed=true]{background:var(--accent);color:var(--ink);border-color:var(--accent)}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:4px}label{display:block;font-size:14px}input[type=range]{accent-color:var(--accent);width:100%;margin:16px 0 24px}input[type=file]{width:100%;max-width:100%;font-size:14px;color:var(--muted)}input::file-selector-button{font:inherit;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px;margin-right:10px;cursor:pointer}.value{font-variant-numeric:tabular-nums;color:var(--accent)}.small{font-size:13px;color:var(--muted)}.source{margin:20px 0;min-height:24px;overflow-wrap:anywhere}audio{display:block;width:100%;height:42px;margin:18px 0}canvas{display:block;width:100%;height:245px}.chart{margin-top:22px}.chart h2{margin-bottom:2px}.compare{margin-top:4px}.divider{border:0;border-top:1px solid var(--line);margin:22px 0}.status{margin:16px 0 0;min-height:22px}.error{color:#ffb8aa}footer{margin-top:24px;color:var(--muted);font-size:13px}.preset{margin-bottom:24px}.preset button{font-size:14px;padding:8px 12px}.badge{font-size:12px;border:1px solid var(--line);padding:5px 9px;border-radius:20px;color:var(--muted)}.check{display:flex;align-items:center;gap:8px}.check input{accent-color:var(--accent)}
+@media(max-width:700px){main{padding:24px 16px}.layout{grid-template-columns:1fr;gap:16px}header{margin-bottom:28px}.panel{padding:20px}.tag{max-width:130px;text-align:right}canvas{height:215px}}
+@media(prefers-color-scheme:light){:root{color-scheme:light;--bg:#f4f6f0;--panel:#fff;--text:#203124;--muted:#5a6b5f;--line:#d4dfd3;--accent:#446c29;--ink:#fff}.error{color:#9b2717}}
+</style>
+</head>
+<body>
+<main>
+<header><span class="brand">drift<span style="color:var(--accent)">.</span></span><span class="tag">RANDOMIZED EQ · LISTENING LAB</span></header>
+<div class="eyebrow">Calm chaos, in familiar sound</div>
+<h1>Let the tone wander.</h1>
+<p>Small, smooth changes to the balance of bass, mids, and treble. Explore the effect on a local audio file, or start with a quiet generated sound.</p>
+<div class="layout">
+<section class="panel" aria-labelledby="source-title">
+<div class="row spread"><h2 id="source-title">01 / Choose a sound</h2><span class="badge">Local audio only</span></div>
+<label for="file">Audio file</label>
+<input id="file" type="file" accept="audio/*,.wav,.mp3,.flac,.m4a,.ogg">
+<div id="source-name" class="source small">No file selected</div>
+<audio id="player" controls loop preload="metadata" aria-label="Audio file playback"></audio>
+<label class="check"><input id="loop" type="checkbox" checked> Loop this file</label>
+<hr class="divider">
+<div class="row"><button id="demo" class="primary">Play gentle demo</button><button id="stop">Stop all audio</button></div>
+<div class="small" style="margin-top:12px">Demo: filtered noise with soft musical tones.</div>
+<hr class="divider">
+<label for="volume" class="row spread"><span>Output level</span><output id="volume-value" class="value">60%</output></label>
+<input id="volume" type="range" min="0" max="100" step="1" value="60">
+<div id="status" class="status small" role="status" aria-live="polite">Ready when you are.</div>
+</section>
+<section class="panel" aria-labelledby="motion-title">
+<h2 id="motion-title">02 / Shape the movement</h2>
+<div class="row preset" aria-label="Effect presets">
+<button data-preset="subtle" aria-pressed="true">Subtle</button>
+<button data-preset="wander" aria-pressed="false">Wander</button>
+<button data-preset="pulse" aria-pressed="false">Soft pulse</button>
+</div>
+<label for="depth" class="row spread"><span>Maximum movement per band</span><output id="depth-value" class="value">±0.8 dB</output></label>
+<input id="depth" type="range" min="0" max="2" step="0.1" value="0.8">
+<label for="pace" class="row spread"><span id="pace-label">Typical time between new targets</span><output id="pace-value" class="value">6.0 s</output></label>
+<input id="pace" type="range" min="0.5" max="16" step="0.1" value="6">
+<div class="row compare" aria-label="Compare original and processed audio">
+<button id="processed" aria-pressed="true">Drift on</button><button id="original" aria-pressed="false">Original</button>
+</div>
+<p class="small" style="margin-top:14px;margin-bottom:0">Both use the same output level and headroom. EQ can still change perceived loudness. Each ear follows the same movement.</p>
+</section>
+</div>
+<section class="panel chart" aria-labelledby="chart-title">
+<div class="row spread"><h2 id="chart-title">The EQ, right now</h2><span id="curve-state" class="small">Starts when audio plays</span></div>
+<canvas id="curve" role="img" aria-label="Live frequency response of five broad EQ bands, from 30 hertz to 16 kilohertz, in decibels"></canvas>
+<div class="row spread small"><span>Broad bands · 120 Hz / 400 Hz / 1.2 kHz / 3.5 kHz / 9 kHz</span><span>No added sound in file mode</span></div>
+</section>
+<footer>This prototype processes only audio played here. System-wide routing is the next implementation step. Files stay on your device; no network requests are made.</footer>
+</main>
+<script>
+'use strict';
+// All audio uses native Web Audio nodes. Automation is scheduled 20 minutes ahead,
+// so short main-thread stalls and background timer throttling do not stop the drift.
+const BANDS = [120, 400, 1200, 3500, 9000];
+const Q = 0.75, HORIZON = 1200, CURVE_HZ = 40;
+const db = x => Math.pow(10, x / 20);
+const $ = id => document.getElementById(id);
+const state = {depth:0.8, pace:6, mode:'drift', enabled:true, volume:0.6, ctx:null, input:null,
+  filters:[], dry:null, wet:null, output:null, media:null, demo:null, url:null, busy:false,
+  schedules:[], seed:729413, audioActive:false};
+function rng(seed) {let a=seed>>>0;return ()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};}
+function smooth(u) {return u*u*u*(10+u*(-15+6*u));}
+function makeCurve(depth, pace, initial, seed, horizon=HORIZON, mode='drift') {
+  const random=rng(seed), count=Math.round(horizon*CURVE_HZ)+1, values=new Float32Array(count);
+  let from=initial, target=(2*random()-1)*depth, begin=0, length=pace*(0.65+0.7*random());
+  if(mode==='pulse') {
+    let cycle=-1,amplitude=0;
+    for(let i=0;i<count;i++) {
+      const t=i/CURVE_HZ,index=Math.floor(t/pace),phase=t/pace-index;
+      if(index!==cycle){cycle=index;amplitude=(2*random()-1)*depth;}
+      const fade=smooth(Math.min(1,t/Math.min(1,pace)));
+      values[i]=initial*(1-fade)+amplitude*Math.pow(Math.sin(Math.PI*phase),2)*fade;
+    }
+    return values;
+  }
+  for(let i=0;i<count;i++) {
+    const t=i/CURVE_HZ;
+    while(t>begin+length) {begin+=length;from=target;target=(2*random()-1)*depth;length=pace*(0.65+0.7*random());}
+    values[i]=from+(target-from)*smooth(Math.min(1,(t-begin)/length));
+  }
+  return values;
+}
+function scheduledValue(s,t) {
+  if(!s)return 0;
+  const pos=Math.max(0,Math.min(s.values.length-1,(t-s.start)*CURVE_HZ));
+  const k=Math.floor(pos), frac=pos-k;
+  return s.values[k]*(1-frac)+s.values[Math.min(k+1,s.values.length-1)]*frac;
+}
+function reschedule() {
+  if(!state.ctx)return;
+  const now=state.ctx.currentTime;
+  state.filters.forEach((f,i)=>{
+    const initial=scheduledValue(state.schedules[i],now);
+    const values=makeCurve(state.depth,state.pace,initial,(state.seed+=71)+i*1009,HORIZON,state.mode);
+    f.gain.cancelScheduledValues(0);
+    f.gain.setValueAtTime(initial,now);
+    f.gain.setValueCurveAtTime(values,now,HORIZON);
+    state.schedules[i]={values,start:now};
+  });
+}
+function makeGraph(ctx,destination,volume) {
+  const input=ctx.createGain();input.gain.value=db(-12);
+  const filters=BANDS.map(hz=>{const f=ctx.createBiquadFilter();f.type='peaking';f.frequency.value=Math.min(hz,ctx.sampleRate*0.43);f.Q.value=Q;f.gain.value=0;return f;});
+  let previous=input;for(const f of filters){previous.connect(f);previous=f;}
+  const dry=ctx.createGain(),wet=ctx.createGain(),output=ctx.createGain();
+  dry.gain.value=0;wet.gain.value=1;output.gain.value=volume;
+  input.connect(dry);previous.connect(wet);dry.connect(output);wet.connect(output);output.connect(destination);
+  return {input,filters,dry,wet,output};
+}
+async function ensureAudio() {
+  if(!state.ctx) {
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx)throw new Error('This browser does not support Web Audio. Open this file in a current desktop browser.');
+    state.ctx=new AudioCtx();Object.assign(state,makeGraph(state.ctx,state.ctx.destination,state.volume));
+    state.media=state.ctx.createMediaElementSource($('player'));state.media.connect(state.input);
+    state.dry.gain.value=state.enabled?0:1;state.wet.gain.value=state.enabled?1:0;
+    state.ctx.onstatechange=()=>{if(state.ctx.state==='suspended' && (!$('player').paused||state.demo))setStatus('Audio is suspended. Press play again to resume.');};
+    reschedule();
+  }
+  await state.ctx.resume();
+}
+function fade(param,target,time=0.05) {
+  const now=state.ctx.currentTime;
+  if(param.cancelAndHoldAtTime)param.cancelAndHoldAtTime(now);
+  else {const current=param.value;param.cancelScheduledValues(now);param.setValueAtTime(current,now);}
+  param.linearRampToValueAtTime(target,now+time);
+}
+function setStatus(message,error=false) {$('status').textContent=message;$('status').classList.toggle('error',error);}
+function setEnabled(enabled) {
+  state.enabled=enabled;
+  $('processed').setAttribute('aria-pressed',String(enabled));$('original').setAttribute('aria-pressed',String(!enabled));
+  if(state.ctx){fade(state.wet.gain,enabled?1:0,0.12);fade(state.dry.gain,enabled?0:1,0.12);}
+  draw();
+}
+function syncControls(preset=null) {
+  $('depth').value=state.depth;$('pace').value=state.pace;
+  $('depth-value').textContent='±'+state.depth.toFixed(1)+' dB';$('pace-value').textContent=state.pace.toFixed(1)+' s';
+  $('pace-label').textContent=state.mode==='pulse'?'Time per tonal pulse':'Typical time between new targets';
+  document.querySelectorAll('[data-preset]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.preset===preset)));
+  reschedule();draw();
+}
+function stopDemo() {
+  if(!state.demo)return;
+  const demo=state.demo;state.demo=null;
+  fade(demo.gain.gain,0,0.1);
+  for(const node of demo.sources)node.stop(state.ctx.currentTime+0.11);
+  setTimeout(()=>demo.nodes.forEach(node=>node.disconnect()),200);
+  $('demo').textContent='Play gentle demo';$('demo').setAttribute('aria-pressed','false');
+}
+async function playDemo() {
+  if(state.busy)return;
+  if(state.demo){stopDemo();setStatus('Demo stopped.');return;}
+  state.busy=true;
+  try {
+    await ensureAudio();$('player').pause();
+    const ctx=state.ctx, gain=ctx.createGain();gain.gain.value=0;gain.connect(state.input);
+    const buffer=ctx.createBuffer(1,ctx.sampleRate*8,ctx.sampleRate),data=buffer.getChannelData(0),random=rng(431);
+    let brown=0;for(let i=0;i<data.length;i++){brown=(brown+0.022*(2*random()-1))/1.022;data[i]=brown*1.8;}
+    // Taper the loop boundary to avoid a discontinuity in the noise source.
+    const edge=Math.floor(ctx.sampleRate*0.05);for(let i=0;i<edge;i++){const w=smooth(i/edge);data[i]*=w;data[data.length-1-i]*=w;}
+    const noise=ctx.createBufferSource();noise.buffer=buffer;noise.loop=true;noise.connect(gain);
+    const sources=[noise],nodes=[noise,gain];
+    [130.81,196,261.63,329.63,392].forEach((hz,i)=>{const oscillator=ctx.createOscillator(),amp=ctx.createGain();oscillator.type='triangle';oscillator.frequency.value=hz; amp.gain.value=0.055/(1+i*0.4);oscillator.connect(amp);amp.connect(gain);sources.push(oscillator);nodes.push(oscillator,amp);});
+    state.demo={gain,sources,nodes};sources.forEach(n=>n.start());gain.gain.linearRampToValueAtTime(1,ctx.currentTime+0.4);
+    $('demo').textContent='Pause demo';$('demo').setAttribute('aria-pressed','true');setStatus('Playing the generated demo.');
+  }catch(error){setStatus(error.message,true);}finally{state.busy=false;}
+}
+$('demo').addEventListener('click',playDemo);
+$('stop').addEventListener('click',()=>{stopDemo();$('player').pause();if(Number.isFinite($('player').duration))$('player').currentTime=0;setStatus('Stopped.');});
+$('file').addEventListener('change',async event=>{
+  const file=event.target.files[0];if(!file)return;
+  stopDemo();$('player').pause();if(state.url)URL.revokeObjectURL(state.url);
+  state.url=URL.createObjectURL(file);$('player').src=state.url;$('player').load();$('source-name').textContent=file.name;
+  try{await ensureAudio();setStatus('File loaded. Press play to listen.');}catch(error){setStatus(error.message,true);}
+});
+$('player').addEventListener('play',async()=>{stopDemo();try{await ensureAudio();setStatus('Playing your audio file.');}catch(error){$('player').pause();setStatus(error.message,true);}});
+$('player').addEventListener('pause',()=>{if(!state.demo)setStatus('Paused.');});
+$('player').addEventListener('error',()=>setStatus('This file could not be played. Try WAV or MP3.',true));
+$('loop').addEventListener('change',e=>{$('player').loop=e.target.checked;});
+$('processed').addEventListener('click',()=>setEnabled(true));$('original').addEventListener('click',()=>setEnabled(false));
+$('depth').addEventListener('input',e=>{state.depth=Number(e.target.value);syncControls();});
+$('pace').addEventListener('input',e=>{state.pace=Number(e.target.value);syncControls();});
+$('volume').addEventListener('input',e=>{state.volume=Number(e.target.value)/100;$('volume-value').textContent=e.target.value+'%';if(state.ctx)fade(state.output.gain,state.volume);});
+document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const presets={subtle:[0.8,6,'drift'],wander:[1.4,10,'drift'],pulse:[0.5,1.5,'pulse']};[state.depth,state.pace,state.mode]=presets[b.dataset.preset];syncControls(b.dataset.preset);}));
+// Renew early. If a browser freezes the page for over 20 minutes, the EQ safely
+// holds its last shape until this callback can run again.
+setInterval(()=>{if(state.ctx && state.ctx.currentTime-state.schedules[0].start>300)reschedule();},30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden && state.ctx && state.ctx.currentTime-state.schedules[0].start>300)reschedule();});
+
+// Magnitude of a peaking biquad, matching the Web Audio peaking-filter formula.
+function response(frequency,gain,center,sr=48000) {
+  const A=Math.pow(10,gain/40),w=2*Math.PI*center/sr,alpha=Math.sin(w)/(2*Q),c=Math.cos(w);
+  const b=[1+alpha*A,-2*c,1-alpha*A],a=[1+alpha/A,-2*c,1-alpha/A],x=2*Math.PI*frequency/sr;
+  const power=v=>{const re=v[0]+v[1]*Math.cos(x)+v[2]*Math.cos(2*x),im=-v[1]*Math.sin(x)-v[2]*Math.sin(2*x);return re*re+im*im;};
+  return 10*Math.log10(power(b)/power(a));
+}
+function draw() {
+  const canvas=$('curve'),rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
+  if(!rect.width)return;
+  const width=rect.width,height=rect.height;
+  if(canvas.width!==Math.round(width*ratio)||canvas.height!==Math.round(height*ratio)){canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);}
+  const c=canvas.getContext('2d');c.setTransform(ratio,0,0,ratio,0,0);c.clearRect(0,0,width,height);
+  const css=getComputedStyle(document.documentElement),left=48,right=16,top=28,bottom=36,W=width-left-right,H=height-top-bottom;
+  const xmax=Math.min(16000,(state.ctx?.sampleRate||48000)*0.45),xmin=30;
+  const x=f=>left+Math.log(f/xmin)/Math.log(xmax/xmin)*W,y=g=>top+(3-g)/6*H;
+  const now=state.ctx?.currentTime||0,gains=BANDS.map((_,i)=>state.enabled?scheduledValue(state.schedules[i],now):0);
+  c.font='12px system-ui';c.textBaseline='middle';
+  for(const value of [-3,0,3]) {c.strokeStyle=css.getPropertyValue('--line');c.lineWidth=1;c.beginPath();c.moveTo(left,y(value));c.lineTo(width-right,y(value));c.stroke();c.fillStyle=css.getPropertyValue('--muted');c.textAlign='right';c.fillText((value>0?'+':'')+value,left-10,y(value));}
+  c.textAlign='left';c.fillText('dB',8,12);
+  const ticks=width<480?[30,300,3000,xmax]:[30,100,1000,5000,xmax];
+  for(const f of ticks) {c.textAlign=f===xmin?'left':f===xmax?'right':'center';c.fillText(f>=1000?(f/1000).toFixed(f%1000?1:0)+'k':String(f),x(f),height-20);}
+  c.textAlign='right';c.fillText('Hz',width-right,12);
+  c.save();c.beginPath();c.rect(left,top,W,H);c.clip();c.beginPath();
+  for(let i=0;i<=250;i++) {const f=xmin*Math.pow(xmax/xmin,i/250);let gain=0;
+    BANDS.forEach((center,j)=>gain+=response(f,gains[j],Math.min(center,(state.ctx?.sampleRate||48000)*0.43),state.ctx?.sampleRate||48000));
+    if(i===0)c.moveTo(x(f),y(gain));else c.lineTo(x(f),y(gain));}
+  c.strokeStyle=css.getPropertyValue('--accent');c.lineWidth=2.5;c.stroke();c.restore();
+  $('curve-state').textContent=!state.ctx?'Starts when audio plays':!state.enabled?'Original · EQ bypassed':state.ctx.state==='running'?'Live · smooth random movement':'Audio paused';
+}
+new ResizeObserver(draw).observe($('curve'));
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',draw);
+setInterval(()=>{if(!document.hidden)draw();},100);
+draw();
+// Expose pure DSP helpers for offline validation, not for app integrations.
+window.DriftTest={makeCurve,scheduledValue,response,makeGraph,db,state,BANDS};
+</script>
+</body>
+</html>
