@@ -1,4 +1,5 @@
 #include "TapAudio.h"
+#include "OutputSelection.h"
 #import <Cocoa/Cocoa.h>
 #include <cmath>
 #include <memory>
@@ -15,6 +16,8 @@
     NSTextField *depthLabel, *paceLabel, *volumeLabel, *status;
     NSButton *start, *stop, *bypass, *refresh;
     NSTimer *timer;
+    AudioObjectID observedDefault;
+    bool routingRequested;
 }
 @end
 @implementation DriftDelegate
@@ -47,6 +50,8 @@
 }
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
     (void)notification;
+    observedDefault = 0;
+    routingRequested = false;
     audio = std::make_unique<TapAudio>(controls);
     NSUserDefaults *prefs = NSUserDefaults.standardUserDefaults;
     [prefs registerDefaults:@{
@@ -197,51 +202,80 @@
     [prefs setBool:p.enabled forKey:@"enabled"];
     [prefs setBool:p.pulse forKey:@"pulse"];
     const auto i = output.indexOfSelectedItem;
-    if (i >= 0 && std::size_t(i) < devices.size())
-        [prefs setObject:[NSString stringWithUTF8String:devices[i].uid.c_str()]
+    if (i == 0)
+        [prefs setObject:@"" forKey:@"outputUID"];
+    else if (i > 0 && std::size_t(i - 1) < devices.size())
+        [prefs setObject:[NSString stringWithUTF8String:devices[i - 1].uid.c_str()]
                   forKey:@"outputUID"];
 }
+- (void)updateDefaultLabel {
+    const auto id = macDefaultOutput();
+    const auto current = macOutputs();
+    const auto *device = drift::findOutput(current, id);
+    NSString *name = device ? [NSString stringWithUTF8String:device->name.c_str()] : @"unavailable";
+    if (output.numberOfItems)
+        [output itemAtIndex:0].title = [NSString stringWithFormat:@"System default — %@", name];
+}
 - (void)refreshDevices {
-    if (audio->running())
+    if (routingRequested)
         return;
     devices = macOutputs();
     [output removeAllItems];
-    NSInteger selected = -1;
-    const auto defaultId = macDefaultOutput();
+    [output addItemWithTitle:@"System default"];
+    NSInteger selected = 0;
     NSString *saved = [NSUserDefaults.standardUserDefaults stringForKey:@"outputUID"];
     for (std::size_t i = 0; i < devices.size(); ++i) {
         [output addItemWithTitle:[NSString stringWithUTF8String:devices[i].name.c_str()]];
-        if (devices[i].id == defaultId)
-            selected = NSInteger(i);
-    }
-    for (std::size_t i = 0; i < devices.size(); ++i)
         if ([[NSString stringWithUTF8String:devices[i].uid.c_str()] isEqualToString:saved])
-            selected = NSInteger(i);
-    if (selected >= 0)
-        [output selectItemAtIndex:selected];
-    else if (!devices.empty())
-        [output selectItemAtIndex:0];
-    start.enabled = !devices.empty();
+            selected = NSInteger(i + 1);
+    }
+    // Preserve an explicit, disconnected choice instead of moving audio elsewhere.
+    if (saved.length && selected == 0) {
+        devices.push_back({0, saved.UTF8String, "Saved device (unavailable)"});
+        [output addItemWithTitle:@"Saved device (unavailable)"];
+        selected = NSInteger(devices.size());
+    }
+    [output selectItemAtIndex:selected];
+    [self updateDefaultLabel];
+    start.enabled = YES;
     stop.enabled = NO;
+}
+- (void)openOutput:(AudioObjectID)device {
+    std::string error;
+    if (!audio->start(device, error)) {
+        routingRequested = false;
+        status.stringValue = [NSString
+            stringWithFormat:@"Could not start: %s Normal audio restored.", error.c_str()];
+    }
 }
 - (void)startAudio {
     const auto i = output.indexOfSelectedItem;
-    if (i < 0 || std::size_t(i) >= devices.size())
+    if (i < 0 || (i > 0 && std::size_t(i - 1) >= devices.size()))
         return;
     [self save];
-    std::string error;
-    if (!audio->start(devices[i].id, error))
-        status.stringValue = [NSString
-            stringWithFormat:
-                @"Could not start: %s. Check System Settings → Privacy & Security → audio capture.",
-                error.c_str()];
+    observedDefault = macDefaultOutput();
+    const auto available = macOutputs();
+    AudioObjectID chosen = 0;
+    if (i > 0)
+        for (const auto &device : available)
+            if (device.uid == devices[i - 1].uid)
+                chosen = device.id; // Core Audio IDs can change after reconnecting.
+    const auto *device = drift::resolveOutput(available, chosen, observedDefault);
+    if (!device || (i > 0 && !chosen)) {
+        status.stringValue =
+            @"Output unavailable. Choose a working default in Sound settings or refresh devices.";
+        return;
+    }
+    routingRequested = true;
+    [self openOutput:device->id];
     [self tick];
 }
 - (void)stopAudio {
+    routingRequested = false;
     if (audio)
         audio->stop();
     status.stringValue = @"Stopped. Normal app audio is restored.";
-    start.enabled = !devices.empty();
+    start.enabled = YES;
     stop.enabled = NO;
     output.enabled = YES;
     refresh.enabled = YES;
@@ -251,23 +285,40 @@
     [self stopAudio];
 }
 - (void)tick {
+    const auto currentDefault = macDefaultOutput();
+    if (routingRequested && output.indexOfSelectedItem == 0 &&
+        (currentDefault != observedDefault || !audio->running())) {
+        observedDefault = currentDefault;
+        const auto available = macOutputs();
+        const auto *device = drift::resolveOutput(available, AudioObjectID(0), currentDefault);
+        audio->stop(); // Release the old tap (and its mute) before starting a new route.
+        if (device)
+            [self openOutput:device->id];
+        else
+            status.stringValue =
+                @"Waiting for a usable system default output. Normal app audio is restored.";
+    }
+    [self updateDefaultLabel];
     std::string reason;
-    if (!audio->healthy(reason))
+    if (!audio->healthy(reason)) {
+        routingRequested = false;
         status.stringValue = [NSString
             stringWithFormat:@"Stopped: %s Normal audio restored; refresh devices and start again.",
                              reason.c_str()];
+    }
     const bool running = audio->running();
-    start.enabled = !running && !devices.empty();
-    stop.enabled = running;
-    output.enabled = !running;
-    refresh.enabled = !running;
+    start.enabled = !routingRequested;
+    stop.enabled = routingRequested;
+    output.enabled = !routingRequested;
+    refresh.enabled = !routingRequested;
     if (running)
-        status.stringValue =
-            [NSString stringWithFormat:@"%@ · Buffer underruns: %llu · Overruns: %llu",
-                                       controls.enabled ? @"Drift is processing"
-                                                        : @"EQ bypassed; audio still routed",
-                                       (unsigned long long)audio->underruns(),
-                                       (unsigned long long)audio->overruns()];
+        status.stringValue = [NSString
+            stringWithFormat:@"%@%@ · Buffer underruns: %llu · Overruns: %llu",
+                             controls.enabled ? @"Drift is processing"
+                                              : @"EQ bypassed; audio still routed",
+                             output.indexOfSelectedItem == 0 ? @" · Following system default" : @"",
+                             (unsigned long long)audio->underruns(),
+                             (unsigned long long)audio->overruns()];
 }
 - (void)quit {
     [NSApp terminate:nil];

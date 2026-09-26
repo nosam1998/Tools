@@ -1,5 +1,7 @@
 #include "AudioQueue.h"
 #include "Engine.h"
+#include "OutputSelection.h"
+#include <string>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -15,6 +17,39 @@ void require(bool condition, const char *message) {
     }
 }
 int main() {
+    struct Endpoint {
+        std::wstring id;
+    };
+    const std::vector<Endpoint> physical{{L"speakers"}, {L"headphones"}};
+    const std::wstring automatic, speakers = L"speakers", headphones = L"headphones",
+                                  cable = L"cable";
+    require(drift::resolveOutput(physical, automatic, speakers)->id == speakers,
+            "default resolves speakers");
+    require(drift::resolveOutput(physical, automatic, headphones)->id == headphones,
+            "default follows new headphones");
+    require(drift::resolveOutput(physical, speakers, headphones)->id == speakers,
+            "explicit choice stays fixed");
+    require(!drift::resolveOutput(physical, std::wstring(L"disconnected"), headphones),
+            "missing explicit device never falls back");
+    require(!drift::resolveOutput(physical, automatic, automatic),
+            "no system default does not pick arbitrary output");
+    require(!drift::resolveOutput(physical, automatic, cable),
+            "virtual cable cannot become render output");
+    require(drift::resolveOutput(physical, automatic, cable, headphones, true)->id == headphones,
+            "cable route keeps prior physical output");
+    require(!drift::resolveOutput(physical, automatic, cable, cable, true),
+            "excluded prior output cannot create feedback");
+    require(!drift::resolveOutput(std::vector<Endpoint>{{speakers}}, automatic, cable, headphones,
+                                  true),
+            "disconnected prior output is not retained");
+    require(!drift::resolveOutput(std::vector<Endpoint>{}, automatic, speakers),
+            "empty device list");
+    struct MacEndpoint {
+        unsigned id;
+    };
+    const std::vector<MacEndpoint> mac{{42}, {77}};
+    require(drift::resolveOutput(mac, 0u, 77u)->id == 77, "Core Audio numeric default selection");
+    require(!drift::resolveOutput(mac, 0u, 0u), "Core Audio unavailable default");
     constexpr double pi = 3.14159265358979323846, headroom = 0.251188643150958;
     for (double rate : {16000., 44100., 48000., 96000.})
         for (bool pulse : {false, true}) {
@@ -137,6 +172,7 @@ int main() {
             require(std::isfinite(x) && std::abs(x) <= 0.251, "concurrent queue");
     }
     producer.join();
-    std::cout << "PASS: DSP, presets, stability, bypass, transitions, block sizes, peak guard, and "
+    std::cout << "PASS: output selection, DSP, presets, stability, bypass, transitions, block "
+                 "sizes, peak guard, and "
                  "audio queue\n";
 }

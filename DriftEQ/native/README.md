@@ -8,10 +8,20 @@ This is a development preview. Windows uses a separately installed virtual audio
 
 A separate [APO developer preview](windows/apo/README-APO.md) now builds the EQ directly as a Windows endpoint effect, with its own controller and setup/removal tools. Its unsigned package is for isolated DLL testing; signed system deployment and hardware validation remain pending. The instructions below still describe the existing VB-CABLE app.
 
+## System default output
+
+Choose **System default** in the output menu to follow the operating system's normal playback device. The choice is saved as a mode, so it continues following the default after reopening Drift. Existing saved, named-device selections stay fixed. An unavailable named device is kept in the menu instead of silently switching to another output.
+
+- **macOS:** the menu shows the current default device. While routing is active, Drift checks for changes about once a second, releases the old tap, and starts a new route. A switch can cause a brief interruption. If no eligible default exists, it restores normal audio and waits; Stop cancels that wait. Unsupported formats or other stream failures still require an explicit Start.
+- **Windows cable app:** **System default (physical output)** follows changes about four times a second. Start while Windows has your speakers/headphones selected. Once you switch Windows to CABLE Input, Drift retains the physical output so it cannot feed back into the cable. To change headphones, select the new physical device in Windows, let Drift switch, then restore CABLE Input for source-app routing. If Windows is already using the cable when starting Drift, choose a named physical output instead.
+- **Windows APO controller:** **System default** follows which endpoint's settings the controls edit. Each device must already have a properly installed APO. It loads that device's own settings; it does not install the effect on new endpoints or copy settings between them. See the [APO guide](windows/apo/README-APO.md).
+
+These options follow the system's normal playback default, not a separate communications default or a source application's private output override. They do not change the OS default themselves.
+
 ## Windows 11: first run
 
 1. Install [VB-CABLE from VB-Audio](https://vb-audio.com/Cable/) using its instructions. Driver installation requires administrator privileges and may require a restart. VB-CABLE is a separate product and is not bundled here.
-2. Run `DriftEQ.exe`. Select **CABLE Output** as input and your actual headphones/speakers as output. Cable playback endpoints are excluded from the output picker to prevent an obvious feedback loop.
+2. Run `DriftEQ.exe`. Select **CABLE Output** as input and **System default (physical output)** or your actual headphones/speakers as output. Cable playback endpoints are excluded from the output picker to prevent an obvious feedback loop.
 3. Click **Start**. Check that the status says Drift is processing.
 4. Open **Windows Sound settings** from the app and set the Windows playback output to **CABLE Input**. Apps using the default device now feed the processor. If an app has its own device selection, select CABLE Input there too.
 5. Play music and start with Subtle. **Bypass EQ** keeps the audio route running with the same shared headroom/output level.
@@ -30,11 +40,11 @@ The app uses shared-mode WASAPI at 48 kHz stereo with Windows format conversion.
 
 1. Build `DriftEQ.app` with the commands below, or use a development archive produced by the workflow.
 2. Move the app to a stable location, then open it.
-3. Select your headphones/speakers and click **Start**.
+3. Select **System default** to follow Sound settings, or choose specific headphones/speakers, and click **Start**.
 4. Allow the system-audio capture permission requested by macOS. If it was denied, use System Settings → Privacy & Security and the audio/screen-recording permission section; the exact label varies by macOS version. Restart the app after changing permission if necessary.
 5. Play audio from another app. The system tap excludes Drift's own process, processes the mixed stereo audio, and suppresses the original while the tap is active.
 
-**Stop routing** destroys the tap and restores normal source playback. Closing the window leaves Drift available in the menu bar. Quit also releases the route. Device disconnects, format changes, or stalled callbacks stop processing; select a working device and Start again. Before sleep, the app stops routing; it does not restart automatically on wake.
+**Stop routing** destroys the tap and restores normal source playback. Closing the window leaves Drift available in the menu bar. Quit also releases the route. With a named output, device disconnects stop processing. System default mode follows a changed default; format changes or stalled callbacks can still stop processing. Select a working device and Start again if an error occurs. Before sleep, the app stops routing; it does not restart automatically on wake.
 
 macOS builds are for development: workflow bundles have only an ad-hoc signature, not a Developer ID signature or Apple notarization. Consumer distribution needs the maintainer's signing credentials and a notarization step. Building locally is the supported development path. Do not disable Gatekeeper globally.
 
@@ -100,12 +110,13 @@ The adaptive buffer starts around 40 ms on macOS and at least 20 ms (usually mor
 
 ## Validation and remaining release work
 
-Automated tests cover multiple sample rates, both modes, deterministic seeds, zero-depth and bypass behavior, channel consistency, rapid control changes, block-size independence, non-finite input, sample-peak containment, and concurrent queue pressure. The workflow builds Windows x64 and universal macOS archives and runs those tests.
+Automated tests cover default versus fixed output selection, unavailable endpoints and virtual-cable feedback prevention, plus multiple sample rates, both modes, deterministic seeds, zero-depth and bypass behavior, channel consistency, rapid control changes, block-size independence, non-finite input, sample-peak containment, and concurrent queue pressure. The workflow builds Windows x64 and universal macOS archives and runs those tests.
 
 Before calling this a consumer release, complete real-device acceptance testing:
 
 - Windows: routed browser/music playback through VB-CABLE; bypass; restore output; device unplug; long sessions; sleep/resume; Bluetooth.
 - macOS: first-run permission; capture of several apps; own-output exclusion; stopping and quitting; device/format changes; sleep/resume; Bluetooth.
+- On both platforms, switch between speakers and headphones with **System default**, then verify a named selection stays fixed. Reopen the app to check persistence; disconnect the chosen endpoint and verify Stop cancels any wait. In the cable app, verify switching Windows to CABLE Input retains the physical output. In the APO controller, verify each endpoint keeps its own settings.
 - Measure end-to-end latency and CPU use on representative hardware.
 - Add signed installers/notarization, icons, accessibility/DPI polish, automatic recovery where reliable, and optional start at login.
 

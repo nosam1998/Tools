@@ -48,6 +48,12 @@ This is a conservative compatibility installer for endpoints with an existing wr
 
 Setup stores binaries and recovery records under `%ProgramFiles%\DriftEQ-APO\0.3.0`. It backs up the exact presence, types, and contents of the two endpoint properties it changes. Failure attempts to restore them; backups remain if restoration fails. Removal refuses to overwrite properties changed by a driver or another installer. It neither restarts the audio service nor changes the default playback device.
 
+## Default playback device
+
+The first device-menu item is **System default — [device name]**. It follows the normal Windows playback default while the controller is open (including while hidden in the tray), checking about once a second. Choosing a named device keeps the controls on that endpoint. The selection is saved for the current Windows user at `HKCU\SOFTWARE\DriftEQ\Controller`.
+
+Following the default loads the new endpoint's existing settings. It does not move the APO installation or copy the previous device's preset or enabled state. If that endpoint is not set up, the controls are disabled and the app explains why. Each endpoint must have the signed effect installed separately. After quitting the controller, Windows still uses each endpoint's installed effect and saved configuration.
+
 ## Controls and sound
 
 - **Subtle, Wander, Soft pulse:** the same presets as the desktop engine, with smooth random EQ movement.
