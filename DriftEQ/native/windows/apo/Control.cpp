@@ -9,12 +9,47 @@
 #include <filesystem>
 #include <vector>
 #include "Settings.h"
+#include "OutputSelection.h"
 using Microsoft::WRL::ComPtr;
 namespace {
 struct Device {
     std::wstring id, guid, name;
 };
 std::vector<Device> devices;
+std::wstring choiceId, displayedDefault;
+constexpr auto choiceKey = L"SOFTWARE\\DriftEQ\\Controller";
+void loadChoice() {
+    wchar_t value[2048]{};
+    DWORD bytes = sizeof(value);
+    if (RegGetValueW(HKEY_CURRENT_USER, choiceKey, L"Output", RRF_RT_REG_SZ, nullptr, value,
+                     &bytes) == ERROR_SUCCESS)
+        choiceId = value;
+}
+void saveChoice() {
+    HKEY key = nullptr;
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, choiceKey, 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key,
+                        nullptr) == ERROR_SUCCESS) {
+        RegSetValueExW(key, L"Output", 0, REG_SZ, reinterpret_cast<const BYTE *>(choiceId.c_str()),
+                       DWORD((choiceId.size() + 1) * sizeof(wchar_t)));
+        RegCloseKey(key);
+    }
+}
+std::wstring defaultOutput() {
+    ComPtr<IMMDeviceEnumerator> e;
+    ComPtr<IMMDevice> endpoint;
+    std::wstring result;
+    if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                   IID_PPV_ARGS(&e))) &&
+        SUCCEEDED(e->GetDefaultAudioEndpoint(eRender, eConsole, &endpoint))) {
+        LPWSTR id = nullptr;
+        if (SUCCEEDED(endpoint->GetId(&id))) {
+            result = id;
+            CoTaskMemFree(id);
+        }
+    }
+    return result;
+}
+void refresh();
 HWND window{}, picker{}, preset{}, depth{}, pace{}, volume{}, depthText{}, paceText{}, volumeText{},
     toggle{}, status{};
 HFONT font{}, titleFont{};
@@ -66,8 +101,8 @@ std::vector<Device> outputs(std::wstring &defaultId) {
     return result;
 }
 const Device *selected() {
-    const auto i = SendMessageW(picker, CB_GETCURSEL, 0, 0);
-    return i >= 0 && std::size_t(i) < devices.size() ? &devices[std::size_t(i)] : nullptr;
+    const auto *device = drift::resolveOutput(devices, choiceId, displayedDefault);
+    return device && !device->guid.empty() ? device : nullptr;
 }
 void labels() {
     wchar_t text[160];
@@ -99,14 +134,24 @@ void load() {
     EnableWindow(pace, installed);
     EnableWindow(volume, installed);
     SendMessageW(preset, CB_SETCURSEL, WPARAM(-1), 0);
-    SetWindowTextW(status,
-                   installed
-                       ? L"Settings loaded. Windows audio enhancements must be enabled. Settings "
-                         L"alone do not confirm that Windows loaded the effect."
-                       : L"This device has not been set up for Drift APO. Open the setup guide. "
-                         L"The unsigned preview cannot be installed into the system audio engine.");
+    SetWindowTextW(
+        status,
+        !d ? L"The selected output is unavailable. Choose another device or refresh the list."
+        : installed ? L"Settings loaded. Windows audio enhancements must be enabled. Settings "
+                      L"alone do not confirm that Windows loaded the effect."
+                    : L"This device has not been set up for Drift APO. Open the setup guide. "
+                      L"The unsigned preview cannot be installed into the system audio engine.");
 }
 void save() {
+    // A default change can arrive between the last timer tick and a slider click.
+    // Reload the new endpoint instead of copying the old endpoint's controls to it.
+    if (choiceId.empty() && defaultOutput() != displayedDefault) {
+        refresh();
+        SetWindowTextW(
+            status,
+            L"The system default changed. Its settings are now loaded; adjust the controls again.");
+        return;
+    }
     const auto *d = selected();
     if (d && drift::apo::writeSettings(d->guid, drift::apo::pack(parameters)))
         SetWindowTextW(status, parameters.enabled
@@ -120,16 +165,24 @@ void save() {
     labels();
 }
 void refresh() {
-    std::wstring previous, defaultId;
-    if (const auto *d = selected())
-        previous = d->id;
-    devices = outputs(defaultId);
+    displayedDefault.clear();
+    devices = outputs(displayedDefault);
     SendMessageW(picker, CB_RESETCONTENT, 0, 0);
+    const auto *defaultDevice = drift::findOutput(devices, displayedDefault);
+    const auto label =
+        std::wstring(L"System default — ") + (defaultDevice ? defaultDevice->name : L"unavailable");
+    SendMessageW(picker, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str()));
     int chosen = 0;
     for (std::size_t i = 0; i < devices.size(); ++i) {
         SendMessageW(picker, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(devices[i].name.c_str()));
-        if (devices[i].id == (previous.empty() ? defaultId : previous))
-            chosen = int(i);
+        if (devices[i].id == choiceId)
+            chosen = int(i + 1);
+    }
+    if (!choiceId.empty() && chosen == 0) {
+        devices.push_back({choiceId, L"", L"Saved device (unavailable)"});
+        SendMessageW(picker, CB_ADDSTRING, 0,
+                     reinterpret_cast<LPARAM>(devices.back().name.c_str()));
+        chosen = int(devices.size());
     }
     SendMessageW(picker, CB_SETCURSEL, chosen, 0);
     load();
@@ -150,8 +203,15 @@ LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_COMMAND:
         switch (LOWORD(wp)) {
         case deviceId:
-            if (HIWORD(wp) == CBN_SELCHANGE)
-                load();
+            if (HIWORD(wp) == CBN_SELCHANGE) {
+                const auto index = SendMessageW(picker, CB_GETCURSEL, 0, 0);
+                if (index == 0)
+                    choiceId.clear();
+                else if (index > 0 && std::size_t(index - 1) < devices.size())
+                    choiceId = devices[std::size_t(index - 1)].id;
+                saveChoice();
+                refresh();
+            }
             break;
         case presetId:
             if (HIWORD(wp) == CBN_SELCHANGE) {
@@ -186,6 +246,10 @@ LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             break;
         }
         return 0;
+    case WM_TIMER:
+        if (defaultOutput() != displayedDefault)
+            refresh();
+        return 0;
     case WM_HSCROLL:
         parameters.depth = float(SendMessageW(depth, TBM_GETPOS, 0, 0)) / 10;
         parameters.seconds = float(SendMessageW(pace, TBM_GETPOS, 0, 0)) / 10;
@@ -216,6 +280,7 @@ LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         ShowWindow(hwnd, SW_HIDE);
         return 0;
     case WM_DESTROY:
+        KillTimer(hwnd, 1);
         Shell_NotifyIconW(NIM_DELETE, &tray);
         DeleteObject(font);
         DeleteObject(titleFont);
@@ -301,7 +366,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     status = add(L"STATIC", L"", 0, 24, 531, 586, 60);
     add(L"STATIC", L"Closing these controls keeps the installed effect running.", 0, 24, 600, 586,
         24);
+    loadChoice();
     refresh();
+    SetTimer(window, 1, 1000, nullptr);
     tray.cbSize = sizeof(tray);
     tray.hWnd = window;
     tray.uID = 1;

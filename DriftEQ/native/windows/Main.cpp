@@ -1,5 +1,7 @@
 #include "Wasapi.h"
+#include "OutputSelection.h"
 #include <commctrl.h>
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -21,7 +23,8 @@ HWND windowHandle{}, inputBox{}, outputBox{}, presetBox{}, depthSlider{}, paceSl
 HFONT font{}, titleFont{};
 NOTIFYICONDATAW tray{};
 std::vector<Device> inputs, outputs;
-std::wstring settingsPath, savedInput, savedOutput;
+std::wstring settingsPath, savedInput, savedOutput, activeOutput, activeInput, observedDefault;
+bool routingRequested = false;
 HWND control(const wchar_t *cls, const wchar_t *text, DWORD style, int x, int y, int w, int h,
              int id = 0) {
     HWND result =
@@ -70,11 +73,14 @@ void save() {
     WritePrivateProfileStringW(L"Drift", L"Pulse", p.pulse ? L"1" : L"0", settingsPath.c_str());
     WritePrivateProfileStringW(L"Drift", L"Enabled", p.enabled ? L"1" : L"0", settingsPath.c_str());
     const int i = selected(inputBox), o = selected(outputBox);
-    if (i >= 0 && std::size_t(i) < inputs.size())
-        WritePrivateProfileStringW(L"Drift", L"Input", inputs[i].id.c_str(), settingsPath.c_str());
-    if (o >= 0 && std::size_t(o) < outputs.size())
-        WritePrivateProfileStringW(L"Drift", L"Output", outputs[o].id.c_str(),
-                                   settingsPath.c_str());
+    if (i >= 0 && std::size_t(i) < inputs.size()) {
+        savedInput = inputs[i].id;
+        WritePrivateProfileStringW(L"Drift", L"Input", savedInput.c_str(), settingsPath.c_str());
+    }
+    if (o >= 0 && std::size_t(o) < outputs.size()) {
+        savedOutput = outputs[o].id;
+        WritePrivateProfileStringW(L"Drift", L"Output", savedOutput.c_str(), settingsPath.c_str());
+    }
 }
 void load() {
     PWSTR directory = nullptr;
@@ -107,10 +113,10 @@ void load() {
     savedOutput = text;
 }
 void refresh() {
-    if (audio.running() || audio.starting())
+    if (routingRequested)
         return;
     inputs.clear();
-    outputs.clear();
+    outputs = {{L"", L"System default (physical output)"}};
     SendMessageW(inputBox, CB_RESETCONTENT, 0, 0);
     SendMessageW(outputBox, CB_RESETCONTENT, 0, 0);
     for (auto &d : audioDevices(true))
@@ -119,8 +125,7 @@ void refresh() {
     for (auto &d : audioDevices(false))
         if (!cableDevice(d.name))
             outputs.push_back(d);
-    const auto defaultId = defaultOutputId();
-    int in = inputs.empty() ? -1 : 0, out = outputs.empty() ? -1 : 0;
+    int in = inputs.empty() ? -1 : 0, out = 0;
     for (std::size_t i = 0; i < inputs.size(); ++i) {
         SendMessageW(inputBox, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(inputs[i].name.c_str()));
         if (inputs[i].id == savedInput)
@@ -128,12 +133,16 @@ void refresh() {
     }
     for (std::size_t i = 0; i < outputs.size(); ++i) {
         SendMessageW(outputBox, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(outputs[i].name.c_str()));
-        if (outputs[i].id == defaultId)
-            out = int(i);
     }
     for (std::size_t i = 0; i < outputs.size(); ++i)
         if (outputs[i].id == savedOutput)
             out = int(i);
+    if (!savedOutput.empty() && out == 0) {
+        outputs.push_back({savedOutput, L"Saved device (unavailable)"});
+        SendMessageW(outputBox, CB_ADDSTRING, 0,
+                     reinterpret_cast<LPARAM>(outputs.back().name.c_str()));
+        out = int(outputs.size() - 1);
+    }
     SendMessageW(inputBox, CB_SETCURSEL, in, 0);
     SendMessageW(outputBox, CB_SETCURSEL, out, 0);
     SetWindowTextW(
@@ -142,6 +151,40 @@ void refresh() {
             ? L"VB-CABLE was not found. Install it separately, then click Refresh devices. Your "
               L"normal audio is unchanged."
             : L"Ready. Start Drift, then select CABLE Input as your Windows playback device.");
+}
+// Resolve only active, non-cable outputs. Holding the last physical device is
+// permitted only after Windows routes source apps into the virtual cable.
+std::wstring resolveDefault(bool allowHold) {
+    const auto id = defaultOutputId();
+    auto available = audioDevices(false);
+    const auto *current = drift::findOutput(available, id);
+    const bool cable = current && cableDevice(current->name);
+    available.erase(std::remove_if(available.begin(), available.end(),
+                                   [](const Device &d) { return cableDevice(d.name); }),
+                    available.end());
+    const auto *target =
+        drift::resolveOutput(available, std::wstring{}, id, activeOutput, allowHold && cable);
+    return target ? target->id : std::wstring{};
+}
+void followDefault() {
+    if (!routingRequested || selected(outputBox) != 0)
+        return;
+    const auto id = defaultOutputId();
+    if (id == observedDefault && !activeOutput.empty())
+        return;
+    observedDefault = id;
+    const auto next = resolveDefault(true);
+    if (next == activeOutput && !next.empty())
+        return;
+    audio.stop();
+    activeOutput = next;
+    if (!next.empty()) {
+        audio.start(activeInput, next);
+        SetWindowTextW(statusText, L"Switching to the system default output...");
+    } else
+        SetWindowTextW(statusText,
+                       L"Waiting for a physical system default output. Choose speakers/headphones "
+                       L"in Windows Sound settings, or stop and select a named output.");
 }
 bool routedToCable() {
     const auto id = defaultOutputId();
@@ -176,9 +219,21 @@ LRESULT CALLBACK procedure(HWND window, UINT message, WPARAM wp, LPARAM lp) {
             if (i < 0 || o < 0)
                 return 0;
             save();
-            audio.start(inputs.at(i).id, outputs.at(o).id);
+            activeOutput = o == 0 ? resolveDefault(false) : outputs.at(o).id;
+            if (activeOutput.empty()) {
+                SetWindowTextW(statusText, L"The default output is unavailable or is a virtual "
+                                           L"cable. Select physical speakers/headphones in Windows "
+                                           L"Sound settings first, or choose a named output here.");
+                return 0;
+            }
+            activeInput = inputs.at(i).id;
+            observedDefault = defaultOutputId();
+            routingRequested = true;
+            audio.start(activeInput, activeOutput);
             SetWindowTextW(statusText, L"Starting audio...");
         } else if (id == stopId) {
+            routingRequested = false;
+            activeOutput.clear();
             audio.stop();
             SetWindowTextW(statusText, L"Stopped. Select your physical headphones/speakers in "
                                        L"Windows Sound settings to restore normal playback.");
@@ -186,7 +241,9 @@ LRESULT CALLBACK procedure(HWND window, UINT message, WPARAM wp, LPARAM lp) {
             controls.enabled = !controls.enabled.load();
             labelValues();
             save();
-        } else if (id == refreshId)
+        } else if ((id == inputId || id == outputId) && HIWORD(wp) == CBN_SELCHANGE)
+            save();
+        else if (id == refreshId)
             refresh();
         else if (id == soundId)
             soundSettings();
@@ -215,19 +272,25 @@ LRESULT CALLBACK procedure(HWND window, UINT message, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_TIMER: {
+        followDefault();
         const bool active = audio.running() || audio.starting();
-        EnableWindow(startButton, !active && !inputs.empty() && !outputs.empty());
-        EnableWindow(stopButton, active);
-        EnableWindow(inputBox, !active);
-        EnableWindow(outputBox, !active);
-        EnableWindow(refreshButton, !active);
+        if (routingRequested && !active && !activeOutput.empty())
+            routingRequested = false; // An actual stream failure requires an explicit retry.
+        EnableWindow(startButton, !routingRequested && !inputs.empty());
+        EnableWindow(stopButton, routingRequested);
+        EnableWindow(inputBox, !routingRequested);
+        EnableWindow(outputBox, !routingRequested);
+        EnableWindow(refreshButton, !routingRequested);
         if (audio.running()) {
             std::wostringstream text;
             text << (controls.enabled ? L"Drift is processing" : L"EQ bypassed; audio still routed")
+                 << (selected(outputBox) == 0
+                         ? L" | System default (holds physical output while cable is default)"
+                         : L"")
                  << L" | 48 kHz stereo | Buffer underruns: " << audio.underruns()
                  << L" | Overruns: " << audio.overruns();
             SetWindowTextW(statusText, text.str().c_str());
-        } else if (!active) {
+        } else if (!active && !routingRequested) {
             const auto error = audio.error();
             if (!error.empty())
                 SetWindowTextW(statusText, error.c_str());
